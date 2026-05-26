@@ -1,0 +1,14 @@
+[
+{
+"instruction": "What is Docker?",
+"response": "Docker is a containerization platform used to package applications and dependencies."
+},
+{
+"instruction": "Explain Kubernetes",
+"response": "Kubernetes is a container orchestration platform used for automating deployment and scaling."
+},
+{
+"instruction": "What is CI/CD?",
+"response": "CI/CD stands for Continuous Integration and Continuous Deployment."
+}
+]

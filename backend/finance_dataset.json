@@ -1,0 +1,14 @@
+[
+{
+"instruction": "Explain EBITDA",
+"response": "EBITDA stands for Earnings Before Interest, Taxes, Depreciation, and Amortization."
+},
+{
+"instruction": "What is SIP investment?",
+"response": "SIP is a Systematic Investment Plan where investors invest fixed amounts regularly in mutual funds."
+},
+{
+"instruction": "Explain P/E ratio",
+"response": "Price-to-Earnings ratio compares a company share price to its earnings per share."
+}
+]

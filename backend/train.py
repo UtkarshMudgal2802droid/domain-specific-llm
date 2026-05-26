@@ -84,12 +84,14 @@ dataset = dataset.map(format_data)
 # TOKENIZE
 # -----------------------------------
 def tokenize(example):
-    return tokenizer(
+    tokens = tokenizer(
         example["text"],
         truncation=True,
         padding="max_length",
         max_length=256
     )
+    tokens["labels"] = tokens["input_ids"].copy()
+    return tokens
 
 tokenized_dataset = dataset.map(tokenize)
 

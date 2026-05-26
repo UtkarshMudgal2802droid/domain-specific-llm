@@ -1,0 +1,13 @@
+# Python
+venv/
+__pycache__/
+*.pyc
+fine_tuned_model/
+
+# Node
+node_modules/
+dist/
+.env
+
+# OS
+.DS_Store

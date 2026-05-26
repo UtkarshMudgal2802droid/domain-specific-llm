@@ -15,24 +15,24 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-model_path = "./fine_tuned_model"
+model_path = "./rcoem_model"
 fallback_model = "TinyLlama/TinyLlama-1.1B-Chat-v1.0"
 
 try:
     if os.path.exists(model_path):
-        print(f"Loading fine-tuned model from {model_path}...")
+        print(f"Loading RCOEM model from {model_path}...")
         tokenizer = AutoTokenizer.from_pretrained(model_path)
         model = AutoModelForCausalLM.from_pretrained(
             model_path,
-            torch_dtype=torch.float32, # CPU friendly
+            torch_dtype=torch.float32, 
             device_map="cpu"
         )
     else:
-        print(f"Fine-tuned model not found. Downloading fallback model ({fallback_model}) for deployment...")
+        print(f"RCOEM model not found. Downloading fallback model ({fallback_model}) for deployment...")
         tokenizer = AutoTokenizer.from_pretrained(fallback_model)
         model = AutoModelForCausalLM.from_pretrained(
             fallback_model,
-            torch_dtype=torch.float32, # CPU friendly
+            torch_dtype=torch.float32,
             device_map="cpu"
         )
 except Exception as e:
@@ -46,10 +46,9 @@ class PromptRequest(BaseModel):
 @app.post("/generate")
 async def generate_text(data: PromptRequest):
     if not model or not tokenizer:
-        return {"response": "System is currently running in mock mode. (AI models could not be loaded into memory)."}
+        return {"response": "System is currently running in mock mode. RCOEM model could not be loaded."}
 
-    # Format specifically for TinyLlama chat template if using fallback
-    formatted_prompt = f"<|system|>\nYou are an expert Finance and Tech AI.\n<|user|>\n{data.prompt}\n<|assistant|>\n"
+    formatted_prompt = f"<|system|>\nYou are an assistant for Shri Ramdeobaba College of Engineering and Management (RCOEM).\n<|user|>\n{data.prompt}\n<|assistant|>\n"
 
     inputs = tokenizer(formatted_prompt, return_tensors="pt").to(model.device)
     

@@ -18,22 +18,26 @@ app.add_middleware(
 model_path = "./fine_tuned_model"
 fallback_model = "TinyLlama/TinyLlama-1.1B-Chat-v1.0"
 
+# Automatically use GPU if available, else CPU
+device = "cuda" if torch.cuda.is_available() else "cpu"
+dtype = torch.float16 if torch.cuda.is_available() else torch.float32
+
 try:
     if os.path.exists(model_path):
-        print(f"Loading fine-tuned model from {model_path}...")
+        print(f"Loading fine-tuned model from {model_path} onto {device}...")
         tokenizer = AutoTokenizer.from_pretrained(model_path)
         model = AutoModelForCausalLM.from_pretrained(
             model_path,
-            torch_dtype=torch.float32, # CPU friendly
-            device_map="cpu"
+            torch_dtype=dtype,
+            device_map="auto"
         )
     else:
-        print(f"Fine-tuned model not found. Downloading fallback model ({fallback_model}) for deployment...")
+        print(f"Fine-tuned model not found. Downloading fallback model ({fallback_model})...")
         tokenizer = AutoTokenizer.from_pretrained(fallback_model)
         model = AutoModelForCausalLM.from_pretrained(
             fallback_model,
-            torch_dtype=torch.float32, # CPU friendly
-            device_map="cpu"
+            torch_dtype=dtype,
+            device_map="auto"
         )
 except Exception as e:
     print(f"Error loading model: {e}")
@@ -48,8 +52,13 @@ async def generate_text(data: PromptRequest):
     if not model or not tokenizer:
         return {"response": "System is currently running in mock mode. (AI models could not be loaded into memory)."}
 
-    # Format specifically for TinyLlama chat template if using fallback
-    formatted_prompt = f"<|system|>\nYou are an expert Finance and Tech AI.\n<|user|>\n{data.prompt}\n<|assistant|>\n"
+    # Format appropriately based on model
+    if os.path.exists(model_path):
+        # Format for your fine-tuned Mistral
+        formatted_prompt = f"Instruction:\n{data.prompt}\nResponse:\n"
+    else:
+        # Format for TinyLlama
+        formatted_prompt = f"<|system|>\nYou are an expert Finance and Tech AI.\n<|user|>\n{data.prompt}\n<|assistant|>\n"
 
     inputs = tokenizer(formatted_prompt, return_tensors="pt").to(model.device)
     
@@ -64,5 +73,7 @@ async def generate_text(data: PromptRequest):
     
     if "<|assistant|>" in response:
         response = response.split("<|assistant|>")[-1].strip()
+    elif "Response:\n" in response:
+        response = response.split("Response:\n")[-1].strip()
     
     return {"response": response}

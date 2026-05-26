@@ -1,9 +1,9 @@
 import os
+import torch
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from transformers import AutoTokenizer, AutoModelForCausalLM
-import torch
 
 app = FastAPI()
 
@@ -15,65 +15,53 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-model_path = "./fine_tuned_model"
-fallback_model = "TinyLlama/TinyLlama-1.1B-Chat-v1.0"
+BASE_MODEL = "TinyLlama/TinyLlama-1.1B-Chat-v1.0"
+FINE_TUNED_MODEL = "./fine_tuned_model"
 
-# Automatically use GPU if available, else CPU
 device = "cuda" if torch.cuda.is_available() else "cpu"
-dtype = torch.float16 if torch.cuda.is_available() else torch.float32
+dtype = torch.float16 if device == "cuda" else torch.float32
 
-try:
-    if os.path.exists(model_path):
-        print(f"Loading fine-tuned model from {model_path} onto {device}...")
-        tokenizer = AutoTokenizer.from_pretrained(model_path)
-        model = AutoModelForCausalLM.from_pretrained(
-            model_path,
-            torch_dtype=dtype,
-            device_map="auto"
-        )
-    else:
-        print(f"Fine-tuned model not found. Downloading fallback model ({fallback_model})...")
-        tokenizer = AutoTokenizer.from_pretrained(fallback_model)
-        model = AutoModelForCausalLM.from_pretrained(
-            fallback_model,
-            torch_dtype=dtype,
-            device_map="auto"
-        )
-except Exception as e:
-    print(f"Error loading model: {e}")
-    tokenizer = None
-    model = None
+model_name = FINE_TUNED_MODEL if os.path.exists(FINE_TUNED_MODEL) else BASE_MODEL
+
+tokenizer = AutoTokenizer.from_pretrained(model_name)
+model = AutoModelForCausalLM.from_pretrained(
+    model_name,
+    torch_dtype=dtype,
+    device_map="auto" if device == "cuda" else None,
+)
+model.eval()
 
 class PromptRequest(BaseModel):
     prompt: str
 
 @app.post("/generate")
 async def generate_text(data: PromptRequest):
-    if not model or not tokenizer:
-        return {"response": "System is currently running in mock mode. (AI models could not be loaded into memory)."}
+    messages = [
+        {"role": "system", "content": "You are an expert Finance and Tech AI assistant."},
+        {"role": "user", "content": data.prompt},
+    ]
 
-    # Format appropriately based on model
-    if os.path.exists(model_path):
-        # Format for your fine-tuned Mistral
-        formatted_prompt = f"Instruction:\n{data.prompt}\nResponse:\n"
-    else:
-        # Format for TinyLlama
-        formatted_prompt = f"<|system|>\nYou are an expert Finance and Tech AI.\n<|user|>\n{data.prompt}\n<|assistant|>\n"
-
-    inputs = tokenizer(formatted_prompt, return_tensors="pt").to(model.device)
-    
-    outputs = model.generate(
-        **inputs,
-        max_new_tokens=150,
-        temperature=0.7,
-        do_sample=True
+    prompt = tokenizer.apply_chat_template(
+        messages,
+        tokenize=False,
+        add_generation_prompt=True
     )
-    
-    response = tokenizer.decode(outputs[0], skip_special_tokens=True)
-    
-    if "<|assistant|>" in response:
-        response = response.split("<|assistant|>")[-1].strip()
-    elif "Response:\n" in response:
-        response = response.split("Response:\n")[-1].strip()
-    
-    return {"response": response}
+
+    inputs = tokenizer(prompt, return_tensors="pt")
+    if device == "cuda":
+        inputs = inputs.to(model.device)
+
+    with torch.no_grad():
+        outputs = model.generate(
+            **inputs,
+            max_new_tokens=150,
+            temperature=0.7,
+            top_p=0.9,
+            do_sample=True,
+        )
+
+    text = tokenizer.decode(outputs[0], skip_special_tokens=True)
+
+    if "assistant" in text.lower():
+        return {"response": text}
+    return {"response": text.strip()}

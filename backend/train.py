@@ -3,6 +3,7 @@ from transformers import AutoTokenizer, AutoModelForCausalLM, TrainingArguments,
 from peft import LoraConfig, prepare_model_for_kbit_training, get_peft_model
 from trl import SFTTrainer
 import torch
+import os
 
 model_name = "TinyLlama/TinyLlama-1.1B-Chat-v1.0"
 
@@ -67,7 +68,7 @@ trainer = SFTTrainer(
     model=model,
     args=training_args,
     train_dataset=dataset,
-    processing_class=tokenizer,
+    tokenizer=tokenizer,
     dataset_text_field="text",
     max_seq_length=256,
     packing=False

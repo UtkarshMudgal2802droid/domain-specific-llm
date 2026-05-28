@@ -13,7 +13,7 @@ bnb_config = BitsAndBytesConfig(
     bnb_4bit_use_double_quant=True
 )
 
-tokenizer = AutoTokenizer.from_pretrained(model_name, use_fast=True)
+tokenizer = AutoTokenizer.from_pretrained(model_name, use_fast=False)
 tokenizer.pad_token = tokenizer.eos_token
 tokenizer.padding_side = "right"
 

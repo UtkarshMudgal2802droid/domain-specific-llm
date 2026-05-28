@@ -2,14 +2,15 @@ import React, { useEffect, useMemo, useState } from 'react';
 import axios from 'axios';
 import './App.css';
 
-const API_BASE_URL = 'https://utkarshmudgal-finance-tech-llm.hf.space';
+const API_BASE_URL = 'https://centaurian-tashia-dextrorse.ngrok-free.dev';
 
 const TOOLS = [
   {
     id: 'qa',
     title: 'Domain Q&A',
     subtitle: 'Ask complex finance and tech questions.',
-    endpoint: '/generate',
+    endpoint: '/domain-specific-llm/generate',
+    health: '/domain-specific-llm/health',
     model: 'Mistral-7B-LoRA',
     kind: 'single',
     placeholder: 'Ask about EBITDA, Kubernetes, SIP, Docker...',
@@ -25,7 +26,8 @@ const TOOLS = [
     id: 'summarize',
     title: 'Report Summarizer',
     subtitle: 'Condense financial or technical reports.',
-    endpoint: '/generate',
+    endpoint: '/domain-specific-llm/generate',
+    health: '/domain-specific-llm/health',
     model: 'Mistral-7B-LoRA',
     kind: 'single',
     placeholder: 'Paste a long financial report or technical documentation here...',
@@ -40,7 +42,8 @@ const TOOLS = [
     id: 'jargon',
     title: 'Jargon Buster',
     subtitle: 'Get clear definitions for industry terms.',
-    endpoint: '/generate',
+    endpoint: '/domain-specific-llm/generate',
+    health: '/domain-specific-llm/health',
     model: 'Mistral-7B-LoRA',
     kind: 'single',
     placeholder: 'Enter a term (e.g., P/E Ratio, CI/CD, Equity dilution)...',
@@ -56,34 +59,33 @@ const TOOLS = [
 
 function App() {
   const [activeTool, setActiveTool] = useState('qa');
-  
-  // Backend status: 'checking' | 'connected' | 'error'
   const [backendState, setBackendState] = useState('checking');
   const [statusMsg, setStatusMsg] = useState('Connecting to inference engine...');
-  
   const [loading, setLoading] = useState(false);
   const [isError, setIsError] = useState(false);
-  
   const [output, setOutput] = useState(null);
   const [meta, setMeta] = useState(null);
-  
   const [inputText, setInputText] = useState('');
   const [inputError, setInputError] = useState('');
-  
   const [history, setHistory] = useState([]);
   const [copied, setCopied] = useState(false);
 
   const tool = useMemo(() => TOOLS.find((item) => item.id === activeTool), [activeTool]);
 
   useEffect(() => {
-    // Optimistic connection check. Since our API doesn't have a /health endpoint out of the box,
-    // we'll assume the system is ready, or fail gracefully on generation.
-    // To make it robust, a simple fetch could be added if a health route existed.
-    setTimeout(() => {
-      setBackendState('connected');
-      setStatusMsg('System Online · Models Loaded');
-    }, 800);
-  }, []);
+    const checkBackend = async () => {
+      try {
+        await axios.get(`${API_BASE_URL}${tool.health}`);
+        setBackendState('connected');
+        setStatusMsg('System Online · Models Loaded');
+      } catch {
+        setBackendState('error');
+        setStatusMsg('Backend unavailable');
+      }
+    };
+
+    checkBackend();
+  }, [tool.health]);
 
   const runTool = async () => {
     if (!inputText.trim()) {
@@ -104,15 +106,14 @@ function App() {
     try {
       const res = await axios.post(`${API_BASE_URL}${tool.endpoint}`, { prompt: finalPrompt });
       const elapsed = Math.max(1, Math.round(performance.now() - started));
-      
       const resultText = res.data.response;
 
       setHistory((prev) => [
-        { 
-          id: Date.now(), 
-          tool: tool.title, 
-          preview: inputText.slice(0, 50) + (inputText.length > 50 ? '...' : ''), 
-          time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) 
+        {
+          id: Date.now(),
+          tool: tool.title,
+          preview: inputText.slice(0, 50) + (inputText.length > 50 ? '...' : ''),
+          time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
         },
         ...prev.slice(0, 4),
       ]);
@@ -126,7 +127,10 @@ function App() {
       });
     } catch (err) {
       setIsError(true);
-      setOutput({ type: 'error', data: err.response?.data?.detail || err.message || 'The request failed to process. Ensure the backend is running.' });
+      setOutput({
+        type: 'error',
+        data: err.response?.data?.detail || err.message || 'The request failed to process. Ensure the backend is running.',
+      });
       setMeta({ model: tool.model, endpoint: tool.endpoint, latency: 'failed', task: tool.id });
     } finally {
       setLoading(false);
@@ -149,7 +153,6 @@ function App() {
 
   const copyToClipboard = () => {
     if (!output || output.type !== 'text') return;
-    
     navigator.clipboard.writeText(output.data);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
@@ -324,9 +327,7 @@ function App() {
                 </button>
               )}
             </div>
-            <div className="output-body">
-              {renderOutput()}
-            </div>
+            <div className="output-body">{renderOutput()}</div>
           </article>
         </section>
       </main>

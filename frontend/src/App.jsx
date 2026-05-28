@@ -60,7 +60,7 @@ const TOOLS = [
 function App() {
   const [activeTool, setActiveTool] = useState('qa');
   const [backendState, setBackendState] = useState('checking');
-  const [statusMsg, setStatusMsg] = useState('Connecting to inference engine...');
+  const [statusMsg, setStatusMsg] = useState('Checking backend...');
   const [loading, setLoading] = useState(false);
   const [isError, setIsError] = useState(false);
   const [output, setOutput] = useState(null);
@@ -75,13 +75,17 @@ function App() {
   useEffect(() => {
     const checkBackend = async () => {
       try {
-        await axios.get(`${API_BASE_URL}${tool.health}`);
-        setBackendState('connected');
-        setStatusMsg('System Online · Models Loaded');
+        const res = await axios.get(`${API_BASE_URL}${tool.health}`);
+        if (res.status === 200) {
+          setBackendState('connected');
+          setStatusMsg('System Online · Models Loaded');
+        } else {
+          setBackendState('error');
+          setStatusMsg('Backend unavailable');
+        }
       } catch (error) {
         setBackendState('error');
         setStatusMsg('Backend unavailable');
-        console.error('Health check failed:', error);
       }
     };
 

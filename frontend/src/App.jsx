@@ -78,9 +78,10 @@ function App() {
         await axios.get(`${API_BASE_URL}${tool.health}`);
         setBackendState('connected');
         setStatusMsg('System Online · Models Loaded');
-      } catch {
+      } catch (error) {
         setBackendState('error');
         setStatusMsg('Backend unavailable');
+        console.error('Health check failed:', error);
       }
     };
 
@@ -132,6 +133,8 @@ function App() {
         data: err.response?.data?.detail || err.message || 'The request failed to process. Ensure the backend is running.',
       });
       setMeta({ model: tool.model, endpoint: tool.endpoint, latency: 'failed', task: tool.id });
+      setBackendState('error');
+      setStatusMsg('Backend unavailable');
     } finally {
       setLoading(false);
     }
